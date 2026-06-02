@@ -31,6 +31,14 @@ def test_autocomplete_endpoint():
     assert "search" in res.json()["suggestions"]
 
 
+def test_topics_endpoint_lists_titles():
+    res = client.get("/api/topics")
+    assert res.status_code == 200
+    topics = res.json()["topics"]
+    assert len(topics) == 25
+    assert "Inverted Index" in topics
+
+
 def test_home_serves_html():
     res = client.get("/")
     assert res.status_code == 200

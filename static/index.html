@@ -33,6 +33,14 @@
     .hit .score { float: right; color: var(--accent); font-size: .8rem; font-weight: 600; }
     .hit p { margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.5; }
     .empty { color: var(--muted); margin-top: 24px; }
+    .topics { margin-top: 22px; }
+    .topics .label { color: var(--muted); font-size: .88rem; margin-bottom: 10px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      padding: 6px 12px; border-radius: 999px; cursor: pointer; font-size: .85rem;
+      background: var(--card); border: 1px solid #2a2a3d; color: #d8d8e8;
+    }
+    .chip:hover { border-color: var(--accent); color: #fff; }
   </style>
 </head>
 <body>
@@ -44,6 +52,7 @@
       <div id="suggest" class="suggest" style="display:none"></div>
     </div>
     <div id="results" class="results"></div>
+    <div id="topics" class="topics"></div>
   </div>
 
   <script>
@@ -51,16 +60,40 @@
     const suggestBox = document.getElementById("suggest");
     const results = document.getElementById("results");
 
+    const topicsBox = document.getElementById("topics");
+    let allTopics = [];
+
+    function renderTopics(label) {
+      if (!allTopics.length) return;
+      topicsBox.innerHTML =
+        `<div class="label">${label}</div><div class="chips">` +
+        allTopics.map(t => `<span class="chip">${t}</span>`).join("") +
+        `</div>`;
+      [...topicsBox.querySelectorAll(".chip")].forEach(el => el.onclick = () => {
+        q.value = el.textContent; runSearch();
+      });
+    }
+
+    async function loadTopics() {
+      try {
+        const data = await (await fetch("/api/topics")).json();
+        allTopics = data.topics || [];
+        renderTopics("Browse the topics in this index:");
+      } catch (_) { /* leave topics hidden if it fails */ }
+    }
+
     async function runSearch() {
       suggestBox.style.display = "none";
       const term = q.value.trim();
-      if (!term) { results.innerHTML = ""; return; }
+      if (!term) { results.innerHTML = ""; renderTopics("Browse the topics in this index:"); return; }
       const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
       const data = await res.json();
       if (!data.results.length) {
-        results.innerHTML = `<p class="empty">No results for “${term}”.</p>`;
+        results.innerHTML = `<p class="empty">No results for “${term}”. This index only covers computer-science topics — try one of these:</p>`;
+        renderTopics("");
         return;
       }
+      topicsBox.innerHTML = "";
       results.innerHTML = data.results.map(r => `
         <div class="hit">
           <span class="score">${r.score.toFixed(2)}</span>
@@ -89,6 +122,8 @@
     document.addEventListener("click", e => {
       if (!suggestBox.contains(e.target) && e.target !== q) suggestBox.style.display = "none";
     });
+
+    loadTopics();  // populate the topic chips on first load
   </script>
 </body>
 </html>
