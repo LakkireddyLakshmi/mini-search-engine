@@ -1,0 +1,11 @@
+# Render Blueprint — deploys the search engine as a free web service.
+# In the Render dashboard: New > Blueprint, pick this repo, and it reads this file.
+services:
+  - type: web
+    name: mini-search-engine
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn searchengine.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    autoDeploy: true
