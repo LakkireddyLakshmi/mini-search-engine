@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini Search Engine</title>
+  <style>
+    :root { --accent: #6d28d9; --bg: #0f0f17; --card: #1a1a27; --muted: #9aa0b4; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; background: var(--bg); color: #e8e8f0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      display: flex; justify-content: center; padding: 8vh 16px;
+    }
+    .wrap { width: 100%; max-width: 680px; }
+    h1 { font-size: 1.6rem; margin: 0 0 4px; }
+    .tag { color: var(--muted); margin: 0 0 28px; font-size: .95rem; }
+    .searchbox { position: relative; }
+    input {
+      width: 100%; padding: 14px 16px; font-size: 1.05rem; border-radius: 12px;
+      border: 1px solid #2a2a3d; background: var(--card); color: #fff; outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+    .suggest {
+      position: absolute; left: 0; right: 0; top: 56px; background: var(--card);
+      border: 1px solid #2a2a3d; border-radius: 12px; overflow: hidden; z-index: 5;
+    }
+    .suggest div { padding: 10px 16px; cursor: pointer; }
+    .suggest div:hover { background: #24243a; }
+    .results { margin-top: 24px; display: flex; flex-direction: column; gap: 14px; }
+    .hit { background: var(--card); border: 1px solid #2a2a3d; border-radius: 12px; padding: 16px; }
+    .hit h3 { margin: 0 0 6px; font-size: 1.1rem; }
+    .hit .score { float: right; color: var(--accent); font-size: .8rem; font-weight: 600; }
+    .hit p { margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.5; }
+    .empty { color: var(--muted); margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🔎 Mini Search Engine</h1>
+    <p class="tag">Inverted index · BM25 ranking · trie autocomplete — all hand-written.</p>
+    <div class="searchbox">
+      <input id="q" type="text" placeholder="Search… try &quot;inverted index&quot; or &quot;sorting&quot;" autocomplete="off" />
+      <div id="suggest" class="suggest" style="display:none"></div>
+    </div>
+    <div id="results" class="results"></div>
+  </div>
+
+  <script>
+    const q = document.getElementById("q");
+    const suggestBox = document.getElementById("suggest");
+    const results = document.getElementById("results");
+
+    async function runSearch() {
+      suggestBox.style.display = "none";
+      const term = q.value.trim();
+      if (!term) { results.innerHTML = ""; return; }
+      const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
+      const data = await res.json();
+      if (!data.results.length) {
+        results.innerHTML = `<p class="empty">No results for “${term}”.</p>`;
+        return;
+      }
+      results.innerHTML = data.results.map(r => `
+        <div class="hit">
+          <span class="score">${r.score.toFixed(2)}</span>
+          <h3>${r.title}</h3>
+          <p>${r.snippet}</p>
+        </div>`).join("");
+    }
+
+    async function runSuggest() {
+      const term = q.value.trim();
+      const last = term.split(/\s+/).pop();
+      if (last.length < 2) { suggestBox.style.display = "none"; return; }
+      const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(last)}`);
+      const data = await res.json();
+      if (!data.suggestions.length) { suggestBox.style.display = "none"; return; }
+      suggestBox.innerHTML = data.suggestions.map(s => `<div>${s}</div>`).join("");
+      suggestBox.style.display = "block";
+      [...suggestBox.children].forEach(el => el.onclick = () => {
+        const parts = term.split(/\s+/); parts[parts.length - 1] = el.textContent;
+        q.value = parts.join(" ") + " "; suggestBox.style.display = "none"; q.focus();
+      });
+    }
+
+    q.addEventListener("input", runSuggest);
+    q.addEventListener("keydown", e => { if (e.key === "Enter") runSearch(); });
+    document.addEventListener("click", e => {
+      if (!suggestBox.contains(e.target) && e.target !== q) suggestBox.style.display = "none";
+    });
+  </script>
+</body>
+</html>

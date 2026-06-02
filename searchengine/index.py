@@ -30,6 +30,11 @@ class Document:
 class InvertedIndex:
     """Maps each word to the documents (and counts) where it appears."""
 
+    # Words in the title are stronger relevance signals than words in the body,
+    # so we count each title occurrence as if it appeared this many times. This
+    # is a simple form of the field boosting that real engines (BM25F) use.
+    TITLE_BOOST = 2
+
     def __init__(self) -> None:
         # term -> {doc_id: term_frequency}
         self.postings: dict[str, dict[int, int]] = defaultdict(dict)
@@ -37,15 +42,22 @@ class InvertedIndex:
         self.documents: dict[int, Document] = {}
 
     def add_document(self, doc_id: int, text: str, title: str = "") -> None:
-        """Tokenize a document and record where each word appears."""
-        tokens = tokenize(text)
+        """Tokenize a document and record where each word appears.
+
+        Body and title words are both indexed; title words are weighted up so
+        that a query matching the title ranks the document higher.
+        """
         counts: dict[str, int] = defaultdict(int)
-        for token in tokens:
+        for token in tokenize(text):
             counts[token] += 1
+        for token in tokenize(title):
+            counts[token] += self.TITLE_BOOST
         for term, freq in counts.items():
             self.postings[term][doc_id] = freq
+        # Length drives BM25 normalisation, so it reflects the boosted counts.
+        length = sum(counts.values())
         self.documents[doc_id] = Document(
-            doc_id=doc_id, title=title, text=text, length=len(tokens)
+            doc_id=doc_id, title=title, text=text, length=length
         )
 
     def documents_containing(self, term: str) -> dict[int, int]:
