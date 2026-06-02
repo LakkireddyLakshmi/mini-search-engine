@@ -28,8 +28,15 @@
     .suggest div { padding: 10px 16px; cursor: pointer; }
     .suggest div:hover { background: #24243a; }
     .results { margin-top: 24px; display: flex; flex-direction: column; gap: 14px; }
-    .hit { background: var(--card); border: 1px solid #2a2a3d; border-radius: 12px; padding: 16px; }
+    .hit { background: var(--card); border: 1px solid #2a2a3d; border-radius: 12px; padding: 16px; cursor: pointer; }
+    .hit:hover { border-color: var(--accent); }
     .hit h3 { margin: 0 0 6px; font-size: 1.1rem; }
+    .article { background: var(--card); border: 1px solid #2a2a3d; border-radius: 12px; padding: 22px; }
+    .article h2 { margin: 0 0 12px; }
+    .article p { margin: 0; color: #d8d8e8; line-height: 1.65; }
+    .back { display: inline-block; margin-bottom: 16px; color: var(--accent);
+            cursor: pointer; font-size: .9rem; }
+    .back:hover { text-decoration: underline; }
     .hit .score { float: right; color: var(--accent); font-size: .8rem; font-weight: 600; }
     .hit p { margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.5; }
     .empty { color: var(--muted); margin-top: 24px; }
@@ -70,8 +77,26 @@
         allTopics.map(t => `<span class="chip">${t}</span>`).join("") +
         `</div>`;
       [...topicsBox.querySelectorAll(".chip")].forEach(el => el.onclick = () => {
-        q.value = el.textContent; runSearch();
+        openDocument(el.textContent);
       });
+    }
+
+    async function openDocument(title) {
+      suggestBox.style.display = "none";
+      topicsBox.innerHTML = "";
+      const res = await fetch(`/api/document?title=${encodeURIComponent(title)}`);
+      if (!res.ok) { results.innerHTML = `<p class="empty">Couldn't open “${title}”.</p>`; return; }
+      const doc = await res.json();
+      results.innerHTML = `
+        <span class="back" id="back">← back to topics</span>
+        <div class="article">
+          <h2>${doc.title}</h2>
+          <p>${doc.text}</p>
+        </div>`;
+      document.getElementById("back").onclick = () => {
+        results.innerHTML = ""; q.value = "";
+        renderTopics("Browse the topics in this index:");
+      };
     }
 
     async function loadTopics() {
@@ -95,11 +120,14 @@
       }
       topicsBox.innerHTML = "";
       results.innerHTML = data.results.map(r => `
-        <div class="hit">
+        <div class="hit" data-title="${r.title.replace(/"/g, "&quot;")}">
           <span class="score">${r.score.toFixed(2)}</span>
           <h3>${r.title}</h3>
           <p>${r.snippet}</p>
         </div>`).join("");
+      [...results.querySelectorAll(".hit")].forEach(el => el.onclick = () => {
+        openDocument(el.dataset.title);
+      });
     }
 
     async function runSuggest() {

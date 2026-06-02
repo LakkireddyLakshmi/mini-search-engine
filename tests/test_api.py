@@ -39,6 +39,19 @@ def test_topics_endpoint_lists_titles():
     assert "Inverted Index" in topics
 
 
+def test_document_endpoint_returns_full_text():
+    res = client.get("/api/document", params={"title": "Trie"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["title"] == "Trie"
+    assert "prefix tree" in body["text"]
+
+
+def test_document_endpoint_404_for_unknown_title():
+    res = client.get("/api/document", params={"title": "Nope"})
+    assert res.status_code == 404
+
+
 def test_home_serves_html():
     res = client.get("/")
     assert res.status_code == 200

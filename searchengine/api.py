@@ -6,13 +6,14 @@ A small FastAPI app that loads the corpus once at startup and exposes:
     GET /api/search?q=...&limit=...   -> ranked results as JSON
     GET /api/autocomplete?q=...       -> query suggestions as JSON
     GET /api/topics                   -> all document titles (for the UI)
+    GET /api/document?title=...       -> full text of one document
     GET /                             -> a single-page search UI
 
 Run it with:  uvicorn searchengine.api:app --reload
 """
 from pathlib import Path
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from searchengine.engine import SearchEngine
@@ -46,6 +47,15 @@ def autocomplete(q: str = Query("", description="prefix to complete"), limit: in
 def topics():
     """The titles of every indexed document — used to show what's searchable."""
     return {"topics": [doc.title for doc in engine.index.documents.values()]}
+
+
+@app.get("/api/document")
+def document(title: str = Query(..., description="exact document title")):
+    """Return the full text of a document so the UI can open it for reading."""
+    for doc in engine.index.documents.values():
+        if doc.title == title:
+            return {"title": doc.title, "text": doc.text}
+    raise HTTPException(status_code=404, detail="document not found")
 
 
 @app.get("/")
