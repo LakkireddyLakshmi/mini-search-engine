@@ -6,6 +6,8 @@ and algorithms work behind tools like Google, implemented and tested step by ste
 No black-box search library: the inverted index, BM25 ranking, and trie
 autocomplete are all hand-written to demonstrate core CS fundamentals.
 
+**🔎 Live demo:** https://huggingface.co/spaces/sweety783/mini-search-engine
+
 ## How search works here
 
 ```
