@@ -109,9 +109,8 @@
     <div class="hero">
       <div class="logo">🔎</div>
       <h1>Mini Search Engine</h1>
-      <p class="tag">A search engine built from scratch — no search library.</p>
-      <div class="stats">
-        <span class="stat"><b>25</b> documents indexed</span>
+      <p class="tag">Full-text search over <b>5,000 Wikipedia articles</b> — inverted index, BM25 &amp; trie, hand-written from scratch.</p>
+      <div class="stats" id="stats">
         <span class="stat">Inverted index</span>
         <span class="stat">BM25 ranking</span>
         <span class="stat">Trie autocomplete</span>
@@ -139,17 +138,33 @@
     const suggestBox = document.getElementById("suggest");
     const results = document.getElementById("results");
     const topicsBox = document.getElementById("topics");
-    let allTopics = [];
 
-    function renderTopics(label) {
-      if (!allTopics.length) return;
+    // Recognisable example queries that all return good hits in the corpus.
+    const EXAMPLES = [
+      "Albert Einstein", "gravity", "World War", "Solar System", "volcano",
+      "Python", "democracy", "photosynthesis", "Shakespeare", "dinosaur",
+      "Olympic Games", "black hole",
+    ];
+
+    function renderExamples(label) {
       topicsBox.innerHTML =
         `<div class="label">${label}</div><div class="chips">` +
-        allTopics.map(t => `<span class="chip">${t}</span>`).join("") +
+        EXAMPLES.map(t => `<span class="chip">${t}</span>`).join("") +
         `</div>`;
       [...topicsBox.querySelectorAll(".chip")].forEach(el => el.onclick = () => {
-        openDocument(el.textContent);
+        q.value = el.textContent; runSearch();
       });
+    }
+
+    async function loadStats() {
+      try {
+        const s = await (await fetch("/api/stats")).json();
+        const box = document.getElementById("stats");
+        const pills =
+          `<span class="stat"><b>${s.documents.toLocaleString()}</b> documents</span>` +
+          `<span class="stat"><b>${s.terms.toLocaleString()}</b> unique terms</span>`;
+        box.insertAdjacentHTML("afterbegin", pills);
+      } catch (_) { /* keep static pills if stats fail */ }
     }
 
     async function openDocument(title) {
@@ -159,34 +174,26 @@
       if (!res.ok) { results.innerHTML = `<p class="empty">Couldn't open “${title}”.</p>`; return; }
       const doc = await res.json();
       results.innerHTML = `
-        <span class="back" id="back">← back to topics</span>
+        <span class="back" id="back">← back to search</span>
         <div class="article">
           <h2>${doc.title}</h2>
           <p>${doc.text}</p>
         </div>`;
       document.getElementById("back").onclick = () => {
         results.innerHTML = ""; q.value = "";
-        renderTopics("Browse the topics in this index:");
+        renderExamples("Try a search:");
       };
-    }
-
-    async function loadTopics() {
-      try {
-        const data = await (await fetch("/api/topics")).json();
-        allTopics = data.topics || [];
-        renderTopics("Browse the topics in this index:");
-      } catch (_) { /* leave topics hidden if it fails */ }
     }
 
     async function runSearch() {
       suggestBox.style.display = "none";
       const term = q.value.trim();
-      if (!term) { results.innerHTML = ""; renderTopics("Browse the topics in this index:"); return; }
+      if (!term) { results.innerHTML = ""; renderExamples("Try a search:"); return; }
       const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
       const data = await res.json();
       if (!data.results.length) {
-        results.innerHTML = `<p class="empty">No results for “${term}”. This index only covers computer-science topics — try one of these:</p>`;
-        renderTopics("");
+        results.innerHTML = `<p class="empty">No results for “${term}”. Try one of these:</p>`;
+        renderExamples("");
         return;
       }
       topicsBox.innerHTML = "";
@@ -222,7 +229,8 @@
       if (!suggestBox.contains(e.target) && e.target !== q) suggestBox.style.display = "none";
     });
 
-    loadTopics();
+    loadStats();
+    renderExamples("Try a search:");
   </script>
 </body>
 </html>

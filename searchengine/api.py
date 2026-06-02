@@ -5,25 +5,31 @@ A small FastAPI app that loads the corpus once at startup and exposes:
 
     GET /api/search?q=...&limit=...   -> ranked results as JSON
     GET /api/autocomplete?q=...       -> query suggestions as JSON
-    GET /api/topics                   -> all document titles (for the UI)
+    GET /api/topics?limit=...         -> a sample of document titles
     GET /api/document?title=...       -> full text of one document
+    GET /api/stats                    -> index headline numbers
     GET /                             -> a single-page search UI
 
 Run it with:  uvicorn searchengine.api:app --reload
+
+Set CORPUS_PATH to point at a different corpus (the deployed app uses the
+8k-article Wikipedia corpus; tests fall back to the small bundled sample).
 """
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from searchengine.engine import SearchEngine
+from searchengine.engine import DEFAULT_CORPUS, SearchEngine
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+CORPUS_PATH = os.getenv("CORPUS_PATH", str(DEFAULT_CORPUS))
 
 app = FastAPI(title="Mini Search Engine", version="1.0")
 
 # Build the index once when the server starts, then reuse it for every request.
-engine = SearchEngine.from_corpus()
+engine = SearchEngine.from_corpus(CORPUS_PATH)
 
 
 @app.get("/api/search")
@@ -44,9 +50,16 @@ def autocomplete(q: str = Query("", description="prefix to complete"), limit: in
 
 
 @app.get("/api/topics")
-def topics():
-    """The titles of every indexed document — used to show what's searchable."""
-    return {"topics": [doc.title for doc in engine.index.documents.values()]}
+def topics(limit: int = 50):
+    """A sample of document titles — used to show what's searchable."""
+    titles = [doc.title for doc in engine.index.documents.values()]
+    return {"topics": titles[:limit]}
+
+
+@app.get("/api/stats")
+def stats():
+    """Headline numbers about the index, shown in the UI."""
+    return engine.stats()
 
 
 @app.get("/api/document")

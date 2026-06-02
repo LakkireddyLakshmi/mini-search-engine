@@ -39,6 +39,15 @@ def test_topics_endpoint_lists_titles():
     assert "Inverted Index" in topics
 
 
+def test_stats_endpoint():
+    res = client.get("/api/stats")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["documents"] == 25
+    assert body["terms"] > 0
+    assert body["avg_doc_length"] > 0
+
+
 def test_document_endpoint_returns_full_text():
     res = client.get("/api/document", params={"title": "Trie"})
     assert res.status_code == 200

@@ -1,4 +1,7 @@
 """End-to-end tests for the full engine built from the bundled corpus."""
+import gzip
+import json
+
 from searchengine.engine import SearchEngine
 
 
@@ -39,3 +42,19 @@ def test_autocomplete_ranks_common_words_first():
 def test_search_no_match_returns_empty():
     engine = SearchEngine.from_corpus()
     assert engine.search("zzzznonexistent") == []
+
+
+def test_loads_gzipped_corpus(tmp_path):
+    path = tmp_path / "mini.jsonl.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as fh:
+        fh.write(json.dumps({"title": "Cats", "text": "cats are small felines"}) + "\n")
+        fh.write(json.dumps({"title": "Dogs", "text": "dogs are loyal animals"}) + "\n")
+    engine = SearchEngine.from_corpus(path)
+    assert engine.index.num_documents == 2
+    assert engine.search("felines")[0].title == "Cats"
+
+
+def test_stats_reports_index_size():
+    stats = SearchEngine.from_corpus().stats()
+    assert stats["documents"] == 25
+    assert stats["terms"] > 0

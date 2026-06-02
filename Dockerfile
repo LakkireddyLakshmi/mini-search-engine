@@ -12,6 +12,8 @@ COPY static ./static
 
 # Hosts inject the port via $PORT; default to 8000 for local `docker run`.
 ENV PORT=8000
+# Serve the 5k-article Wikipedia corpus in production.
+ENV CORPUS_PATH=/app/data/wiki.jsonl
 EXPOSE 8000
 
 CMD ["sh", "-c", "uvicorn searchengine.api:app --host 0.0.0.0 --port ${PORT}"]

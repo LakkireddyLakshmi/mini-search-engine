@@ -6,7 +6,21 @@ and algorithms work behind tools like Google, implemented and tested step by ste
 No black-box search library: the inverted index, BM25 ranking, and trie
 autocomplete are all hand-written to demonstrate core CS fundamentals.
 
+It indexes **5,000 real Wikipedia articles** and answers queries in **single-digit
+milliseconds**.
+
 **🔎 Live demo:** https://huggingface.co/spaces/sweety783/mini-search-engine
+
+## Numbers
+
+| Metric | Value |
+| --- | --- |
+| Documents indexed | 5,000 (Simple English Wikipedia) |
+| Unique terms | ~50,000 |
+| Index build time | ~2 s (one-time, at startup) |
+| Query latency | ~0.3–2 ms |
+
+Measured locally on the bundled corpus; reproduce with `scripts/build_corpus.py`.
 
 ## How search works here
 
@@ -49,9 +63,28 @@ uvicorn searchengine.api:app --reload
 **HTTP API:**
 
 ```
-GET /api/search?q=inverted+index&limit=10   -> ranked results as JSON
-GET /api/autocomplete?q=sea                  -> query suggestions as JSON
+GET /api/search?q=black+hole&limit=10   -> ranked results as JSON
+GET /api/autocomplete?q=comp             -> query suggestions as JSON
+GET /api/document?title=Black+hole       -> full article text
+GET /api/stats                           -> index size + term count
 ```
+
+## The corpus
+
+The app ships with two corpora:
+
+- `data/corpus.jsonl` — 25 hand-written CS/science articles (used by the tests, so
+  they stay fast and deterministic).
+- `data/wiki.jsonl` — 5,000 Simple English Wikipedia articles (what the deployed
+  app serves). Regenerate it with:
+
+  ```bash
+  pip install huggingface_hub pyarrow
+  python scripts/build_corpus.py 5000     # streams one Wikipedia parquet shard
+  ```
+
+The engine picks the corpus from the `CORPUS_PATH` env var (the Docker image sets
+it to the Wikipedia corpus); without it, the small sample is used.
 
 ## Run the tests
 
@@ -59,8 +92,8 @@ GET /api/autocomplete?q=sea                  -> query suggestions as JSON
 pytest -v
 ```
 
-39 tests cover the tokenizer, inverted index, BM25 ranking, trie autocomplete,
-the end-to-end engine, and the HTTP API.
+45 tests cover the tokenizer, inverted index, BM25 ranking, trie autocomplete,
+the end-to-end engine (plain + gzipped corpora), and the HTTP API.
 
 ## Project layout
 
@@ -73,7 +106,9 @@ searchengine/
   engine.py         ties index + ranking + autocomplete together
   api.py            FastAPI endpoints + web UI
   cli.py            terminal search
-data/corpus.jsonl   bundled sample documents (25 CS/science articles)
+scripts/build_corpus.py   build the Wikipedia corpus from the HF Hub
+data/corpus.jsonl   bundled sample documents (25 CS/science articles, for tests)
+data/wiki.jsonl     5,000 Simple English Wikipedia articles (served in prod)
 static/index.html   single-page search UI
 tests/              one test module per component
 ```
@@ -83,7 +118,7 @@ tests/              one test module per component
 - [x] **Step 1 — Index core:** tokenizer + inverted index + AND search
 - [x] **Step 2 — Ranking:** BM25 relevance scoring (best result first)
 - [x] **Step 3 — Autocomplete:** trie-based query suggestions
-- [x] **Step 4 — Data:** loadable JSONL corpus + sample dataset
+- [x] **Step 4 — Data:** 5,000-article Wikipedia corpus + loader + build script
 - [x] **Step 5 — API + UI:** search/autocomplete endpoints and a web page
 - [ ] **Step 6 — Scale (next):** shard the index across processes/nodes with a
       gRPC query service and load-test it — turning this into a *distributed*

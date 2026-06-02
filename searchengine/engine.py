@@ -11,6 +11,7 @@ exposes two operations:
 The trie is seeded from the indexed vocabulary, weighting each word by how
 often it appears across the whole corpus, so common terms surface first.
 """
+import gzip
 import json
 from collections import defaultdict
 from dataclasses import dataclass
@@ -53,9 +54,13 @@ class SearchEngine:
 
     @classmethod
     def from_corpus(cls, path: Path | str = DEFAULT_CORPUS) -> "SearchEngine":
-        """Build an engine from a JSONL file of {"title", "text"} records."""
+        """Build an engine from a JSONL file of {"title", "text"} records.
+
+        Plain `.jsonl` and gzipped `.jsonl.gz` files are both supported.
+        """
         engine = cls()
-        with open(path, encoding="utf-8") as fh:
+        opener = gzip.open if str(path).endswith(".gz") else open
+        with opener(path, "rt", encoding="utf-8") as fh:
             for doc_id, line in enumerate(fh, start=1):
                 line = line.strip()
                 if not line:
@@ -66,6 +71,16 @@ class SearchEngine:
                 )
         engine.build_autocomplete()
         return engine
+
+    def stats(self) -> dict:
+        """Headline numbers about the index — surfaced in the UI."""
+        n = self.index.num_documents
+        total_tokens = sum(doc.length for doc in self.index.documents.values())
+        return {
+            "documents": n,
+            "terms": len(self.index.postings),
+            "avg_doc_length": round(total_tokens / n, 1) if n else 0,
+        }
 
     def _snippet(self, doc_id: int, length: int = 160) -> str:
         text = self.index.documents[doc_id].text
